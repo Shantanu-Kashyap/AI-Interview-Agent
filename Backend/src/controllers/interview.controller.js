@@ -409,6 +409,29 @@ const extractResumeDataFallback = (resumeText = "") => {
     };
 };
 
+const buildFallbackQuestions = ({ role, mode, skills, projects }) => {
+    const skillText = Array.isArray(skills) && skills.length ? skills.slice(0, 3).join(", ") : "your core skills";
+    const projectText = Array.isArray(projects) && projects.length ? projects[0] : "your recent project";
+
+    if (mode === "HR") {
+        return [
+            `Can you briefly introduce yourself and explain why you are interested in the ${role} role?`,
+            `Tell me about a challenge you faced during ${projectText} and how you handled it effectively.`,
+            `Describe a time you collaborated with teammates and what specific contribution you made to the outcome.`,
+            `How do you prioritize tasks when deadlines are close and multiple responsibilities need your attention?`,
+            `Why should we hire you for this role, and what impact do you plan to create in six months?`,
+        ];
+    }
+
+    return [
+        `Can you walk me through your experience as a ${role} and the kind of problems you usually solve?`,
+        `Explain one project where you used ${skillText}, and describe your exact implementation approach.`,
+        `How would you debug a production issue when users report slow performance and inconsistent behavior?`,
+        `What trade-offs do you consider when designing scalable and secure APIs for real-world applications?`,
+        `If you had to improve ${projectText}, what architecture changes would you propose and why?`,
+    ];
+};
+
 export const analyzeResume = async (req, res) => {
     try {
         if (!req.file) {
@@ -587,23 +610,20 @@ Make questions based on the candidate's role, experience, interviewMode, project
             }
         ];
 
-        const aiResponse = await askAI(messages);
-        if (!aiResponse || !aiResponse.trim()) {
-            return res.status(500).json({
-                message: "AI returned empty response."
-            });
+        let questionsArray = [];
+        try {
+            const aiResponse = await askAI(messages);
+            questionsArray = aiResponse
+                .split("\n")
+                .map(q => q.trim())
+                .filter(q => q.length > 0)
+                .slice(0, 5);
+        } catch (aiError) {
+            console.error("Question AI generation failed, using fallback:", aiError.message);
         }
 
-        const questionsArray = aiResponse
-            .split("\n")
-            .map(q => q.trim())
-            .filter(q => q.length > 0)
-            .slice(0, 5);
-
         if (questionsArray.length === 0) {
-            return res.status(500).json({
-                message: "AI failed to generate questions."
-            });
+            questionsArray = buildFallbackQuestions({ role, mode, skills, projects });
         }
 
         user.credits -= 50;
