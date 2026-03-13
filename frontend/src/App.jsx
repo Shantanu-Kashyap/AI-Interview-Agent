@@ -17,7 +17,7 @@ import ToastViewport from './components/ToastViewport'
 import { showInfoToast } from './utils/toast'
 import apiClient from './utils/apiClient'
 
-export const serverURL = 'http://localhost:5000'
+export const serverURL = 'https://ai-interview-agent-px6a.onrender.com'
 
 const App = () => {
 

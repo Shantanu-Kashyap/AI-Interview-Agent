@@ -8,14 +8,15 @@ import userRouter from './src/routes/user.route.js';
 import interviewRouter from './src/routes/interview.route.js';
 import paymentRouter from './src/routes/payment.route.js';
 import adminRouter from './src/routes/admin.route.js';
-dotenv.config();
 
+dotenv.config();
 
 const app = express();
 const allowedOrigins = [
     process.env.FRONTEND_URL,
     "http://localhost:5173",
     "https://ai-interview-agent-rose.vercel.app",
+  "https://ai-interview-agent.vercel.app",
 ].filter(Boolean);
 
 const corsOptions = {
@@ -37,8 +38,8 @@ app.options("*", cors(corsOptions));
 
 app.use(express.json());
 app.use(cookieParser());
-connectDB();
 
+connectDB();
 
 app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
@@ -46,5 +47,8 @@ app.use('/api/interview', interviewRouter);
 app.use('/api/payment', paymentRouter);
 app.use('/api/admin', adminRouter);
 
+const PORT = process.env.PORT || 5000;
 
-app.listen(process.env.PORT);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
