@@ -364,6 +364,51 @@ const buildInterviewAnalyticsPayload = async (interview, { scope = "role", limit
     };
 };
 
+const extractResumeDataFallback = (resumeText = "") => {
+    const text = String(resumeText || "").replace(/\s+/g, " ").trim();
+    const lower = text.toLowerCase();
+
+    const roleHints = [
+        ["frontend", "Frontend Developer"],
+        ["backend", "Backend Developer"],
+        ["full stack", "Full Stack Developer"],
+        ["data analyst", "Data Analyst"],
+        ["software engineer", "Software Engineer"],
+        ["developer", "Software Developer"],
+    ];
+
+    let role = "Software Engineer";
+    for (const [needle, label] of roleHints) {
+        if (lower.includes(needle)) {
+            role = label;
+            break;
+        }
+    }
+
+    const experienceMatch = text.match(/(\d+\+?\s*(?:years?|yrs?|months?))/i);
+    const experience = experienceMatch ? experienceMatch[1] : "0-1 years";
+
+    const knownSkills = [
+        "JavaScript", "TypeScript", "React", "Node.js", "Express", "MongoDB", "SQL", "Python",
+        "Java", "C++", "HTML", "CSS", "Redux", "Next.js", "REST API", "Git",
+    ];
+    const skills = knownSkills.filter((s) => lower.includes(s.toLowerCase())).slice(0, 8);
+
+    const projectSegments = text
+        .split(/\.|\n|;/)
+        .map((p) => p.trim())
+        .filter((p) => p.length >= 20 && /(project|built|developed|implemented|created)/i.test(p))
+        .slice(0, 3)
+        .map((p) => (p.length > 120 ? `${p.slice(0, 117)}...` : p));
+
+    return {
+        role,
+        experience,
+        projects: projectSegments,
+        skills,
+    };
+};
+
 export const analyzeResume = async (req, res) => {
     try {
         if (!req.file) {
@@ -383,6 +428,11 @@ export const analyzeResume = async (req, res) => {
             resumeText += content.items.map(item => item.str).join(" ");
         }
         resumeText = resumeText.replace(/\s+/g, ' ').trim();
+
+        if (!resumeText) {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            return res.status(400).json({ error: "Could not extract text from PDF. Please upload a text-based PDF." });
+        }
 
         const messages = [
             {
@@ -408,17 +458,27 @@ export const analyzeResume = async (req, res) => {
             }
         ];
 
-        const aiResponse = await askAI(messages);
-        const parsed = parseAiJson(aiResponse);
+        let parsed;
+        let analysisMode = "ai";
+        try {
+            const aiResponse = await askAI(messages);
+            parsed = parseAiJson(aiResponse);
+        } catch (aiError) {
+            // Fallback keeps interview setup usable when provider/env fails.
+            analysisMode = "fallback";
+            parsed = extractResumeDataFallback(resumeText);
+            console.error("Resume AI analysis failed, used fallback:", aiError.message);
+        }
 
         fs.unlinkSync(filePath);
 
         res.json({
-            role: parsed.role,
-            experience: parsed.experience,
-            projects: parsed.projects,
-            skills: parsed.skills,
-            resumeText
+            role: parsed.role || "Software Engineer",
+            experience: parsed.experience || "0-1 years",
+            projects: Array.isArray(parsed.projects) ? parsed.projects : [],
+            skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+            resumeText,
+            analysisMode,
         });
 
 
@@ -428,7 +488,11 @@ export const analyzeResume = async (req, res) => {
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
-        return res.status(500).json({ error: "Failed to analyze resume" });
+        const message = error?.message || "Failed to analyze resume";
+        if (/OPENROUTER_API_KEY/i.test(message)) {
+            return res.status(500).json({ error: "AI service is not configured on server. Please contact admin." });
+        }
+        return res.status(500).json({ error: message });
     }
 };
 
