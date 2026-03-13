@@ -10,6 +10,8 @@ import InterviewPage from './pages/InterviewPage'
 import InterviewHistory from './pages/InterviewHistory'
 import Pricing from './pages/Pricing'
 import InterviewReport from './pages/InterviewReport'
+import { showApiError } from './utils/errorHandler'
+import ToastViewport from './components/ToastViewport'
 
 export const serverURL = 'http://localhost:5000'
 
@@ -24,7 +26,10 @@ const App = () => {
       dispatch(setUserData(result.data));
 
      } catch (error) {
-      console.error("Error fetching current user:", error);
+      const status = error?.response?.status;
+      if (status !== 401) {
+        showApiError(error, "Unable to load your account right now.");
+      }
       dispatch(setUserData(null));
      }
    }
@@ -32,16 +37,19 @@ const App = () => {
    }, [dispatch])
 
   return (
-    <Routes>
-     
-     <Route path='/' element={<Home />} />
-     <Route path='/auth' element={<Auth />} />
-     <Route path='/interview' element={<InterviewPage />} />
-     <Route path='/history' element={<InterviewHistory />} />
-     <Route path='/pricing' element={<Pricing />} />
-     <Route path='/report/:id' element={<InterviewReport />} />
+    <>
+      <ToastViewport />
+      <Routes>
+      
+      <Route path='/' element={<Home />} />
+      <Route path='/auth' element={<Auth />} />
+      <Route path='/interview' element={<InterviewPage />} />
+      <Route path='/history' element={<InterviewHistory />} />
+      <Route path='/pricing' element={<Pricing />} />
+      <Route path='/report/:id' element={<InterviewReport />} />
 
-    </Routes>
+      </Routes>
+    </>
   )
 }
 

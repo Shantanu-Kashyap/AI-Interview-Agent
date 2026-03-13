@@ -12,6 +12,7 @@ import axios from "axios";
 import { serverURL } from "../App";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../redux/userSlice";
+import { showApiError } from "../utils/errorHandler";
 
 const Step1SetUp = ({ onStart }) => {
   const {userData} = useSelector((state)=>state.user);
@@ -38,7 +39,6 @@ const Step1SetUp = ({ onStart }) => {
         formdata,
         { withCredentials: true },
       );
-      console.log(result.data);
       setRole(result.data.role || "");
       setExperience(result.data.experience || "");
       setProjects(result.data.projects || []);
@@ -47,7 +47,7 @@ const Step1SetUp = ({ onStart }) => {
       setAnalysisDone(true);
       setAnalyzing(false);
     } catch (error) {
-      console.error("Error analyzing resume:", error);
+      showApiError(error, "We could not analyze your resume right now. Please try again.");
       setAnalyzing(false);
     }
   };
@@ -56,7 +56,6 @@ const Step1SetUp = ({ onStart }) => {
     setLoading(true);
     try {
       const result = await axios.post(serverURL + "/api/interview/generate-questions", {role, experience, mode, resumeText, projects, skills}, {withCredentials: true});
-      console.log(result.data);
       if(userData){
         dispatch(setUserData({...userData, credits: result.data.creditsLeft}));
       }
@@ -64,7 +63,7 @@ const Step1SetUp = ({ onStart }) => {
       onStart(result.data);
 
     } catch (error) {
-      console.error("Error generating questions:", error);
+      showApiError(error, "Unable to start interview right now. Please try again.");
       setLoading(false);
     }
   }

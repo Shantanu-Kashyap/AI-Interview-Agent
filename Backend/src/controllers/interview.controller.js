@@ -218,15 +218,14 @@ export const submitAnswer = async (req, res) => {
         }
 
         const interview = await Interview.findById(interviewId);
-        const question = interview?.questions[questionIndex];
-
-        if (!answer) {
-            question.score = 0;
-            question.feedback = "You did not submit an answer.";
-            question.answer = "";
+        if (!interview) {
+            return res.status(404).json({ error: "Interview not found" });
         }
-        await interview.save();
-        res.json({ feedback: question.feedback });
+
+        const question = interview?.questions[questionIndex];
+        if (!question) {
+            return res.status(400).json({ error: "Invalid question index" });
+        }
 
         // If time exceeded
         if (timeTaken > question.timeLimit) {
@@ -303,7 +302,7 @@ Candidate's Answer: ${answer}
         question.feedback = parsed.feedback;
         await interview.save();
 
-        return res.status(200).json({
+        return res.json({
             feedback: parsed.feedback
         });
 

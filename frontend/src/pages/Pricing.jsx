@@ -6,6 +6,8 @@ import { serverURL } from "../App";
 import axios from "axios";
 import { useDispatch } from "react-redux";
 import { setUserData } from "../redux/userSlice";
+import { showApiError } from "../utils/errorHandler";
+import { showSuccessToast } from "../utils/toast";
 
 
 const Pricing = () => {
@@ -89,11 +91,10 @@ const Pricing = () => {
               { withCredentials: true }
             );
             dispatch(setUserData(verifyResult.data.user));
-            alert("Payment successful! Credits added to your account.");
+            showSuccessToast("Payment successful. Credits were added to your account.");
             navigate("/");
           } catch (err) {
-            console.error("Verification error:", err);
-            alert("Payment verification failed. Please contact support.");
+            showApiError(err, "Payment verification failed. Please contact support.");
           }
         },
         theme: { color: "#059669" },
@@ -102,8 +103,7 @@ const Pricing = () => {
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (error) {
-      console.error("Payment error:", error);
-      alert("Failed to initiate payment. Please try again.");
+      showApiError(error, "Failed to initiate payment. Please try again.");
     } finally {
       setLoadingPlan(null);
     }

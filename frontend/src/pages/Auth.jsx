@@ -10,6 +10,7 @@ import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { setUserData } from '../redux/userSlice';
 import { useNavigate } from 'react-router-dom';
+import { showApiError } from '../utils/errorHandler';
 
 
 const Auth = ({isModel = false}) => {
@@ -26,7 +27,7 @@ const Auth = ({isModel = false}) => {
             dispatch(setUserData(res.data.user));
             
         } catch (error) {
-            console.error("Error signing in with Google:", error);
+            showApiError(error, "Sign-in failed. Please try again.");
             dispatch(setUserData(null));
         }
     }

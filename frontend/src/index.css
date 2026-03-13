@@ -1,1 +1,27 @@
 @import "tailwindcss";
+
+button,
+a,
+select,
+summary,
+input[type="checkbox"],
+input[type="radio"] {
+	cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+	cursor: not-allowed;
+}
+
+@keyframes toast-enter {
+	from {
+		opacity: 0;
+		transform: translateY(-8px) translateX(8px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) translateX(0) scale(1);
+	}
+}

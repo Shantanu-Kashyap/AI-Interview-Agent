@@ -9,6 +9,7 @@ import { serverURL } from '../App';
 import axios from 'axios';
 import { setUserData } from '../redux/userSlice';
 import AuthModel from './AuthModel';
+import { showApiError } from '../utils/errorHandler';
 
 const Navbar = () => {
 
@@ -28,7 +29,7 @@ const Navbar = () => {
             navigate('/');
 
         } catch (error) {
-            console.error("Logout error:", error);
+            showApiError(error, "Unable to logout right now. Please try again.");
         }
     }
 

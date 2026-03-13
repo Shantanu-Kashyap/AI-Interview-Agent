@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { serverURL } from "../App";
 import { FaArrowLeft } from "react-icons/fa";
+import { showApiError } from "../utils/errorHandler";
 
 const InterviewHistory = () => {
   const [interviews, setInterviews] = useState([]);
@@ -19,7 +20,7 @@ const InterviewHistory = () => {
 
         setInterviews(res.data.interviews || []);
       } catch (error) {
-        console.error("Error fetching interviews:", error);
+        showApiError(error, "Unable to load interview history right now.");
       }
     };
     getMyInterviews();

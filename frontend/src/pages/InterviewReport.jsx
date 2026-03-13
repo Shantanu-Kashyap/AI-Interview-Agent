@@ -4,6 +4,7 @@ import { serverURL } from '../App';
 import Step3Report from '../components/Step3Report';
 import { useEffect } from 'react';
 import axios from 'axios';
+import { showApiError } from '../utils/errorHandler';
 
 
 const InterviewReport = () => {
@@ -17,10 +18,9 @@ const InterviewReport = () => {
       try{
        const res = await axios.get(serverURL + `/api/interview/report/${id}`, { withCredentials: true });
        setReport(res.data);
-       console.log(res.data);
 
       } catch(error){
-        console.error("Error fetching report", error);
+        showApiError(error, "Unable to load the interview report right now.");
       }
     }
     fetchReport();

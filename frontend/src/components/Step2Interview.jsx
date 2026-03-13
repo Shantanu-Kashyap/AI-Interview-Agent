@@ -8,6 +8,7 @@ import axios from "axios";
 import { serverURL} from "../App";
 import { BsArrowRight } from "react-icons/bs";
 import { motion } from "framer-motion";
+import { showApiError } from "../utils/errorHandler";
 
 
 const Step2Interview = ({ interviewData, onFinish = () => {} }) => {
@@ -304,7 +305,7 @@ const submitAnswer =async () => {
     speakText(res.data.feedback);
     
   } catch (error) {
-     console.error("Error submitting answer:", error);
+      showApiError(error, "We could not submit your answer. Please try again.");
      setIsSubmitting(false);
      speakText("Sorry, there was an error submitting your answer. Please try again.");
   }
@@ -332,7 +333,6 @@ const finishInterview = async () => {
       interviewId,
     }, { withCredentials: true }
   );
-  console.log(res.data);
   onFinish(res.data);
   
   const finalFeedback = res.data.finalFeedback || "Thank you for completing the interview. We will get back to you soon.";
@@ -340,7 +340,7 @@ const finishInterview = async () => {
   speakText(finalFeedback); 
     
   } catch (error) {
-      console.error("Error finishing interview:", error);
+      showApiError(error, "Unable to finish interview right now. Please try again.");
       speakText("Sorry, there was an error finishing the interview. Please try again.");
 
   }
