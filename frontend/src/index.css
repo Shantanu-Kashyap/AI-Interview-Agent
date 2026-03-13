@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+:root {
+	/* Global UI density: make 100% browser zoom feel close to prior 80% zoom. */
+	font-size: 80%;
+}
+
 button,
 a,
 select,
