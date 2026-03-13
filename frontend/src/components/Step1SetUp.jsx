@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   FaUserTie,
@@ -7,12 +7,14 @@ import {
   FaMicrophoneAlt,
   FaChartLine,
 } from "react-icons/fa";
-import { useState } from "react";
-import axios from "axios";
-import { serverURL } from "../App";
+import { FaBolt } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../redux/userSlice";
 import { showApiError } from "../utils/errorHandler";
+import { showSuccessToast } from "../utils/toast";
+import apiClient from "../utils/apiClient";
+import OnboardingWizard from "./OnboardingWizard";
+import { useNavigate } from "react-router-dom";
 
 const Step1SetUp = ({ onStart }) => {
   const {userData} = useSelector((state)=>state.user);
@@ -27,6 +29,54 @@ const Step1SetUp = ({ onStart }) => {
   const [resumeText, setResumeText] = useState("");
   const [analysisDone, setAnalysisDone] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const navigate = useNavigate();
+
+  const roleTemplates = [
+    {
+      id: "sde-intern",
+      title: "SDE Intern",
+      role: "Software Development Engineer Intern",
+      experience: "0-1 years",
+      mode: "Technical",
+      skills: ["JavaScript", "React", "Node.js", "DSA"],
+      projects: ["Full-stack task manager", "REST API authentication module"],
+    },
+    {
+      id: "frontend-dev",
+      title: "Frontend Developer",
+      role: "Frontend Developer",
+      experience: "1-3 years",
+      mode: "Technical",
+      skills: ["React", "Redux", "CSS", "Performance Optimization"],
+      projects: ["Responsive e-commerce UI", "Analytics dashboard"],
+    },
+    {
+      id: "backend-dev",
+      title: "Backend Developer",
+      role: "Backend Developer",
+      experience: "1-3 years",
+      mode: "Technical",
+      skills: ["Node.js", "Express", "MongoDB", "System Design"],
+      projects: ["Payment service", "Job queue service"],
+    },
+    {
+      id: "data-analyst",
+      title: "Data Analyst",
+      role: "Data Analyst",
+      experience: "0-2 years",
+      mode: "HR",
+      skills: ["SQL", "Python", "Excel", "Data Visualization"],
+      projects: ["Sales trend dashboard", "Customer retention analysis"],
+    },
+  ];
+
+  useEffect(() => {
+    const completed = window.localStorage.getItem("interview-onboarding-v1") === "done";
+    if (!completed) {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   const handleUploadResume = async () => {
     if (!resumeFile || analyzing) return;
@@ -34,10 +84,9 @@ const Step1SetUp = ({ onStart }) => {
     const formdata = new FormData();
     formdata.append("resume", resumeFile);
     try {
-      const result = await axios.post(
-        serverURL + "/api/interview/resume",
+      const result = await apiClient.post(
+        "/api/interview/resume",
         formdata,
-        { withCredentials: true },
       );
       setRole(result.data.role || "");
       setExperience(result.data.experience || "");
@@ -45,6 +94,7 @@ const Step1SetUp = ({ onStart }) => {
       setSkills(result.data.skills || []);
       setResumeText(result.data.resumeText || "");
       setAnalysisDone(true);
+      showSuccessToast("Resume analyzed successfully. You can review extracted details below.");
       setAnalyzing(false);
     } catch (error) {
       showApiError(error, "We could not analyze your resume right now. Please try again.");
@@ -52,10 +102,20 @@ const Step1SetUp = ({ onStart }) => {
     }
   };
 
+  const applyTemplate = (template) => {
+    setRole(template.role);
+    setExperience(template.experience);
+    setMode(template.mode);
+    setSkills(template.skills);
+    setProjects(template.projects);
+    setAnalysisDone(true);
+    showSuccessToast(`${template.title} template applied.`);
+  };
+
   const handleStart = async () => {
     setLoading(true);
     try {
-      const result = await axios.post(serverURL + "/api/interview/generate-questions", {role, experience, mode, resumeText, projects, skills}, {withCredentials: true});
+      const result = await apiClient.post("/api/interview/generate-questions", {role, experience, mode, resumeText, projects, skills});
       if(userData){
         dispatch(setUserData({...userData, credits: result.data.creditsLeft}));
       }
@@ -63,19 +123,32 @@ const Step1SetUp = ({ onStart }) => {
       onStart(result.data);
 
     } catch (error) {
-      showApiError(error, "Unable to start interview right now. Please try again.");
+      const backendMessage = `${error?.response?.data?.message || ""} ${error?.response?.data?.error || ""}`;
+      if (/credit/i.test(backendMessage)) {
+        showApiError(error, "Not enough credits to start interview.", {
+          actionLabel: "Go to Pricing",
+          onAction: () => navigate("/pricing"),
+        });
+      } else {
+        showApiError(error, "Unable to start interview right now. Please try again.", {
+          actionLabel: "Retry",
+          onAction: handleStart,
+        });
+      }
       setLoading(false);
     }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 px-4"
-    >
-      <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl grid md:grid-cols-2 overflow-hidden">
+    <>
+      {showOnboarding && <OnboardingWizard onClose={() => setShowOnboarding(false)} />}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 px-4"
+      >
+        <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl grid md:grid-cols-2 overflow-hidden">
         <motion.div
           initial={{ x: -80, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -132,6 +205,23 @@ const Step1SetUp = ({ onStart }) => {
           </h2>
 
           <div className="space-y-6">
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <FaBolt className="text-emerald-600" /> Quick Role Templates
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {roleTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => applyTemplate(template)}
+                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:border-emerald-400 hover:bg-emerald-50"
+                  >
+                    {template.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="relative">
               <FaUserTie className="absolute top-4 left-4 text-gray-400" />
               <input
@@ -251,8 +341,9 @@ const Step1SetUp = ({ onStart }) => {
             </motion.button>
           </div>
         </motion.div>
-      </div>
-    </motion.div>
+        </div>
+      </motion.div>
+    </>
   );
 };
 

@@ -48,8 +48,8 @@ export const getHumanReadableError = (error, fallbackMessage = GENERIC_ERROR_MES
   return fallbackMessage || GENERIC_ERROR_MESSAGE;
 };
 
-export const showApiError = (error, fallbackMessage) => {
+export const showApiError = (error, fallbackMessage, toastOptions) => {
   const message = getHumanReadableError(error, fallbackMessage);
-  showErrorToast(message);
+  showErrorToast(message, toastOptions);
   return message;
 };

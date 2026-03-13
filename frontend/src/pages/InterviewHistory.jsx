@@ -1,28 +1,30 @@
-import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { serverURL } from "../App";
 import { FaArrowLeft } from "react-icons/fa";
 import { showApiError } from "../utils/errorHandler";
+import apiClient from "../utils/apiClient";
 
 const InterviewHistory = () => {
   const [interviews, setInterviews] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const getMyInterviews = async () => {
-      try {
-        const res = await axios.get(
-          serverURL + "/api/interview/get-interview",
-          { withCredentials: true },
-        );
-        
+  const getMyInterviews = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get("/api/interview/get-interview");
+      setInterviews(res.data.interviews || []);
+    } catch (error) {
+      showApiError(error, "Unable to load interview history right now.", {
+        actionLabel: "Retry",
+        onAction: getMyInterviews,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setInterviews(res.data.interviews || []);
-      } catch (error) {
-        showApiError(error, "Unable to load interview history right now.");
-      }
-    };
+  useEffect(() => {
     getMyInterviews();
   }, []);
 
@@ -48,11 +50,28 @@ const InterviewHistory = () => {
           </div>
         </div>
 
-        {interviews.length === 0 ? (
+        {loading ? (
           <div className="bg-white p-10 rounded-2xl shadow text-center">
-            <p className="text-gray-500">
-              No interviews found. Start your first interview.
-            </p>
+            <p className="text-gray-500">Loading your interview history...</p>
+          </div>
+        ) : interviews.length === 0 ? (
+          <div className="bg-white p-10 rounded-2xl shadow text-center">
+            <p className="text-gray-700 text-lg font-semibold">No interviews yet</p>
+            <p className="text-gray-500 mt-2">Start your first mock interview and track growth over time.</p>
+            <div className="mt-5 flex items-center justify-center gap-3 flex-wrap">
+              <button
+                onClick={() => navigate("/interview")}
+                className="rounded-xl bg-black px-5 py-2 text-white hover:opacity-90"
+              >
+                Start First Interview
+              </button>
+              <button
+                onClick={() => navigate("/interview")}
+                className="rounded-xl border border-gray-300 px-5 py-2 text-gray-700 hover:bg-gray-100"
+              >
+                Try Resume-Based Round
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-5">
@@ -96,7 +115,7 @@ const InterviewHistory = () => {
                           : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {item.status}
+                      {item.status === "completed" ? "Completed" : "Incomplete"}
                     </span>
                   </div>  
                 </div>

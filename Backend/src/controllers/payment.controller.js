@@ -6,7 +6,7 @@ import crypto from "crypto";
 
 export const createOrder = async (req, res) => {
     try {
-        const { planId, amount, credits } = req.body;
+        const { planId, amount, credits, planType = "credits", durationDays = 0 } = req.body;
 
         if (!amount || !credits) {
             return res.status(400).json({ message: "Invalid plan data" });
@@ -25,6 +25,8 @@ export const createOrder = async (req, res) => {
             planId,
             amount,
             credits,
+            planType,
+            durationDays,
             razorpayOrderId: order.id,
             status: "created",
         });
@@ -64,10 +66,29 @@ export const verifyPayment = async (req, res) => {
         payment.status = "paid";
         await payment.save();
 
+        const userBeforeUpdate = await User.findById(payment.userId).select("subscriptionExpiresAt");
+
+        const updatePayload = {
+            $inc: { credits: payment.credits },
+        };
+
+        if (payment.planType === "subscription" && payment.durationDays > 0) {
+            const now = new Date();
+            const currentExpiry = userBeforeUpdate?.subscriptionExpiresAt ? new Date(userBeforeUpdate.subscriptionExpiresAt) : null;
+            const startDate = currentExpiry && currentExpiry > now ? currentExpiry : now;
+            const nextExpiry = new Date(startDate);
+            nextExpiry.setDate(nextExpiry.getDate() + payment.durationDays);
+
+            updatePayload.$set = {
+                subscriptionPlan: payment.planId,
+                subscriptionExpiresAt: nextExpiry,
+            };
+        }
+
         const updatedUser = await User.findByIdAndUpdate(
             payment.userId,
-            { $inc: { credits: payment.credits } },
-            { new: true }
+            updatePayload,
+            { returnDocument: "after" }
         );
 
         return res.json({

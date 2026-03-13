@@ -2,12 +2,11 @@ import React, { useState } from "react";
 import { FaArrowLeft, FaCheckCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { serverURL } from "../App";
-import axios from "axios";
 import { useDispatch } from "react-redux";
 import { setUserData } from "../redux/userSlice";
 import { showApiError } from "../utils/errorHandler";
 import { showSuccessToast } from "../utils/toast";
+import apiClient from "../utils/apiClient";
 
 
 const Pricing = () => {
@@ -15,6 +14,8 @@ const Pricing = () => {
   const dispatch = useDispatch();
   const [selectedPlan, setSelectedPlan] = useState("free");
   const [loadingPlan, setLoadingPlan] = useState(null);
+  const [referralCode, setReferralCode] = useState("");
+  const [applyingReferral, setApplyingReferral] = useState(false);
 
   const plans = [
     {
@@ -50,6 +51,7 @@ const Pricing = () => {
       name: "Pro Pack",
       price: "₹500",
       credits: 650,
+      planType: "credits",
       description: "Best value for serious job preparation.",
       features: [
         "650 AI Interview Credits",
@@ -59,17 +61,60 @@ const Pricing = () => {
       ],
       badge: "Best Value",
     },
+    {
+      id: "starter-monthly",
+      name: "Starter Monthly",
+      price: "₹199",
+      credits: 250,
+      planType: "subscription",
+      durationDays: 30,
+      description: "Monthly plan with recurring practice momentum.",
+      features: [
+        "250 Credits instantly",
+        "30-day active subscription",
+        "Priority support queue",
+        "Full analytics access",
+      ],
+      badge: "Subscription",
+    },
+    {
+      id: "pro-monthly",
+      name: "Pro Monthly",
+      price: "₹399",
+      credits: 500,
+      planType: "subscription",
+      durationDays: 30,
+      description: "For consistent interview prep with advanced reporting.",
+      features: [
+        "500 Credits instantly",
+        "30-day premium subscription",
+        "Advanced report insights",
+        "Priority AI processing",
+      ],
+      badge: "Most Popular",
+    },
   ];
 
   const handlePayment = async (plan) => {
     try {
       setLoadingPlan(plan.id);
-      const amount = plan.id === "basic" ? 100 : plan.id === "pro" ? 500 : 0;
+      const amountMap = {
+        basic: 100,
+        pro: 500,
+        "starter-monthly": 199,
+        "pro-monthly": 399,
+      };
+      const amount = amountMap[plan.id] || 0;
 
-      const result = await axios.post(
-        serverURL + "/api/payment/order",
-        { planId: plan.id, amount, credits: plan.credits },
-        { withCredentials: true }
+      const result = await apiClient.post(
+        "/api/payment/order",
+        {
+          planId: plan.id,
+          amount,
+          credits: plan.credits,
+          planType: plan.planType || "credits",
+          durationDays: plan.durationDays || 0,
+        },
       );
 
       const options = {
@@ -81,17 +126,19 @@ const Pricing = () => {
         order_id: result.data.id,
         handler: async function (response) {
           try {
-            const verifyResult = await axios.post(
-              serverURL + "/api/payment/verify",
+            const verifyResult = await apiClient.post(
+              "/api/payment/verify",
               {
                 razorpayOrderId: response.razorpay_order_id,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature,
               },
-              { withCredentials: true }
             );
             dispatch(setUserData(verifyResult.data.user));
-            showSuccessToast("Payment successful. Credits were added to your account.");
+            showSuccessToast("Payment successful. Credits were added to your account.", {
+              actionLabel: "Go to Interview",
+              onAction: () => navigate("/interview"),
+            });
             navigate("/");
           } catch (err) {
             showApiError(err, "Payment verification failed. Please contact support.");
@@ -106,6 +153,20 @@ const Pricing = () => {
       showApiError(error, "Failed to initiate payment. Please try again.");
     } finally {
       setLoadingPlan(null);
+    }
+  };
+
+  const handleApplyReferral = async () => {
+    try {
+      setApplyingReferral(true);
+      const res = await apiClient.post("/api/auth/apply-referral", { referralCode });
+      dispatch(setUserData(res.data.user));
+      showSuccessToast("Referral applied successfully. Bonus credits added.");
+      setReferralCode("");
+    } catch (error) {
+      showApiError(error, "Unable to apply referral code.");
+    } finally {
+      setApplyingReferral(false);
     }
   };
 
@@ -125,6 +186,26 @@ const Pricing = () => {
           <p className="text-gray-500 mt-3 text-lg">
             Flexible pricing to match your interview preparation goals.
           </p>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto mb-10 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-semibold text-gray-800">Have a referral code?</h3>
+        <p className="text-sm text-gray-500 mt-1">Apply and get bonus interview credits.</p>
+        <div className="mt-4 flex gap-2">
+          <input
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="Enter referral code"
+            className="flex-1 rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-emerald-500"
+          />
+          <button
+            onClick={handleApplyReferral}
+            disabled={!referralCode.trim() || applyingReferral}
+            className="rounded-xl bg-black px-4 py-3 text-white font-semibold disabled:opacity-50"
+          >
+            {applyingReferral ? "Applying..." : "Apply"}
+          </button>
         </div>
       </div>
 

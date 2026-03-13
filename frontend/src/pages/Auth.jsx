@@ -5,12 +5,10 @@ import { motion } from "motion/react"
 import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup } from 'firebase/auth';
 import { auth, provider } from '../utils/firebase';
-import { serverURL } from '../App';
-import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { setUserData } from '../redux/userSlice';
-import { useNavigate } from 'react-router-dom';
 import { showApiError } from '../utils/errorHandler';
+import apiClient from '../utils/apiClient';
 
 
 const Auth = ({isModel = false}) => {
@@ -23,7 +21,7 @@ const Auth = ({isModel = false}) => {
             let user= response.user;
             let name = user.displayName;
             let email = user.email;
-            const res = await axios.post(serverURL + '/api/auth/google', { name, email }, { withCredentials: true });
+            const res = await apiClient.post('/api/auth/google', { name, email });
             dispatch(setUserData(res.data.user));
             
         } catch (error) {

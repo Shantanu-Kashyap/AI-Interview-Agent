@@ -7,6 +7,7 @@ import cors from 'cors';
 import userRouter from './src/routes/user.route.js';
 import interviewRouter from './src/routes/interview.route.js';
 import paymentRouter from './src/routes/payment.route.js';
+import adminRouter from './src/routes/admin.route.js';
 dotenv.config();
 
 
@@ -25,6 +26,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/user', userRouter);
 app.use('/api/interview', interviewRouter);
 app.use('/api/payment', paymentRouter);
+app.use('/api/admin', adminRouter);
 
 
 app.listen(process.env.PORT);

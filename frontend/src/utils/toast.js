@@ -1,8 +1,12 @@
 const listeners = new Set();
 const pendingToasts = [];
+const MAX_PENDING = 30;
 
 const notifyListeners = (toast) => {
   if (!listeners.size) {
+    if (pendingToasts.length >= MAX_PENDING) {
+      pendingToasts.shift();
+    }
     pendingToasts.push(toast);
     return;
   }
@@ -26,19 +30,29 @@ export const showToast = ({
   message,
   type = "info",
   duration = 3500,
+  actionLabel,
+  onAction,
 }) => {
+  if (!message || typeof message !== "string") return;
+
   notifyListeners({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     message,
     type,
     duration,
+    actionLabel,
+    onAction,
   });
 };
 
-export const showErrorToast = (message) => {
-  showToast({ message, type: "error" });
+export const showErrorToast = (message, options = {}) => {
+  showToast({ message, type: "error", ...options });
 };
 
-export const showSuccessToast = (message) => {
-  showToast({ message, type: "success" });
+export const showSuccessToast = (message, options = {}) => {
+  showToast({ message, type: "success", ...options });
+};
+
+export const showInfoToast = (message, options = {}) => {
+  showToast({ message, type: "info", ...options });
 };

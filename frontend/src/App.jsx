@@ -3,15 +3,19 @@ import { Routes } from 'react-router-dom'
 import { Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Auth from './pages/Auth'
-import axios from 'axios'
 import { useDispatch } from 'react-redux'
 import { setUserData } from './redux/userSlice'
 import InterviewPage from './pages/InterviewPage'
 import InterviewHistory from './pages/InterviewHistory'
 import Pricing from './pages/Pricing'
 import InterviewReport from './pages/InterviewReport'
+import SharedReport from './pages/SharedReport'
+import Leaderboard from './pages/Leaderboard'
+import Admin from './pages/Admin'
 import { showApiError } from './utils/errorHandler'
 import ToastViewport from './components/ToastViewport'
+import { showInfoToast } from './utils/toast'
+import apiClient from './utils/apiClient'
 
 export const serverURL = 'http://localhost:5000'
 
@@ -22,7 +26,7 @@ const App = () => {
    useEffect(()=>{
    const getUser = async ()=>{
      try {
-      const result = await axios.get(`${serverURL}/api/user/current-user`, { withCredentials: true });
+      const result = await apiClient.get('/api/user/current-user');
       dispatch(setUserData(result.data));
 
      } catch (error) {
@@ -36,6 +40,24 @@ const App = () => {
    getUser();
    }, [dispatch])
 
+  useEffect(() => {
+    const handleOffline = () => {
+      showInfoToast("You are offline. Some actions may not work until connection is back.");
+    };
+
+    const handleOnline = () => {
+      showInfoToast("Back online. You can continue your interview.");
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
+
   return (
     <>
       <ToastViewport />
@@ -47,6 +69,9 @@ const App = () => {
       <Route path='/history' element={<InterviewHistory />} />
       <Route path='/pricing' element={<Pricing />} />
       <Route path='/report/:id' element={<InterviewReport />} />
+      <Route path='/shared-report/:token' element={<SharedReport />} />
+      <Route path='/leaderboard' element={<Leaderboard />} />
+      <Route path='/admin' element={<Admin />} />
 
       </Routes>
     </>

@@ -10,12 +10,16 @@ const toastStyleByType = {
 const ToastViewport = () => {
   const [toasts, setToasts] = useState([]);
 
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((item) => item.id !== id));
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeToToasts((toast) => {
-      setToasts((prev) => [...prev, toast]);
+      setToasts((prev) => [...prev, toast].slice(-4));
 
       window.setTimeout(() => {
-        setToasts((prev) => prev.filter((item) => item.id !== toast.id));
+        removeToast(toast.id);
       }, toast.duration ?? 3500);
     });
 
@@ -34,7 +38,29 @@ const ToastViewport = () => {
           key={toast.id}
           className={`rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm animate-[toast-enter_220ms_ease-out] ${toastStyleByType[toast.type] || toastStyleByType.info}`}
         >
-          <p className="text-sm font-medium leading-relaxed">{toast.message}</p>
+          <div className="flex items-start gap-3">
+            <p className="text-sm font-medium leading-relaxed flex-1">{toast.message}</p>
+            <button
+              type="button"
+              onClick={() => removeToast(toast.id)}
+              className="text-base leading-none opacity-70 hover:opacity-100"
+              aria-label="Close notification"
+            >
+              x
+            </button>
+          </div>
+          {toast.actionLabel && typeof toast.onAction === "function" && (
+            <button
+              type="button"
+              onClick={() => {
+                toast.onAction();
+                removeToast(toast.id);
+              }}
+              className="mt-2 text-xs font-semibold underline underline-offset-2"
+            >
+              {toast.actionLabel}
+            </button>
+          )}
         </div>
       ))}
     </div>

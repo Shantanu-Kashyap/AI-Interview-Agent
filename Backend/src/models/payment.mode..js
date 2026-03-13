@@ -8,6 +8,15 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
     planId: String,
+    planType: {
+      type: String,
+      enum: ["credits", "subscription"],
+      default: "credits",
+    },
+    durationDays: {
+      type: Number,
+      default: 0,
+    },
     amount: Number,
     credits: Number,
     razorpayOrderId: String,

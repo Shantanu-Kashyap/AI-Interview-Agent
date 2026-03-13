@@ -288,6 +288,39 @@ const Home = () => {
               ))}
             </div>
           </div>
+
+          <div className="mb-28">
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-4xl font-semibold text-center mb-12"
+            >
+              Why Learners <span className="text-green-600">Trust Us</span>
+            </motion.h2>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                {
+                  title: "AI Rubric-Based Scoring",
+                  desc: "Every answer is evaluated using confidence, communication, and correctness rubrics for consistent assessment.",
+                },
+                {
+                  title: "Privacy First",
+                  desc: "Your interview data is used only for generating reports and progress insights. We do not expose private content publicly.",
+                },
+                {
+                  title: "Used by Learners",
+                  desc: "Students and job seekers use InterviewIQ.AI to practice before real interviews and improve week by week.",
+                },
+              ].map((item) => (
+                <div key={item.title} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-800">{item.title}</h3>
+                  <p className="mt-3 text-sm text-gray-500 leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       {showAuth && <AuthModel onClose={() => setShowAuth(false)} />}

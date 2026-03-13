@@ -4,11 +4,12 @@ import maleVideo from "../assets/videos/male-ai.mp4";
 import { useState } from "react";
 import Timer from "../components/Timer";
 import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
-import axios from "axios";
-import { serverURL} from "../App";
 import { BsArrowRight } from "react-icons/bs";
 import { motion } from "framer-motion";
 import { showApiError } from "../utils/errorHandler";
+import { showInfoToast, showSuccessToast } from "../utils/toast";
+import apiClient from "../utils/apiClient";
+import { useNavigate } from "react-router-dom";
 
 
 const Step2Interview = ({ interviewData, onFinish = () => {} }) => {
@@ -30,6 +31,7 @@ const Step2Interview = ({ interviewData, onFinish = () => {} }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voiceGender, setVoiceGender] = useState("female");
   const [subtitle, setSubtitle] = useState("");
+  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
   const videoRef = useRef(null);
   const isMicOnRef = useRef(true);
   const isAIPlayingRef = useRef(false);
@@ -41,6 +43,28 @@ const Step2Interview = ({ interviewData, onFinish = () => {} }) => {
       ? currentQuestion 
       : currentQuestion.question || "Question is loading...";
   const currentTimeLimit = currentQuestion.timeLimit || 60;
+  const getDraftKey = (index) => `interview-draft:${interviewId}:${index}`;
+  const navigate = useNavigate();
+
+  const sanitizeFeedbackText = (value) => {
+    const raw = String(value || "").replace(/```json|```/gi, "").trim();
+    if (!raw) return "";
+
+    const explicitFeedback = raw.match(/\bfeedback\s*[:=]\s*(.+)$/i);
+    if (explicitFeedback?.[1]) {
+      return explicitFeedback[1]
+        .replace(/[{}\[\]"]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    return raw
+      .replace(/\b(confidence|communication|correctness|finalScore|final_score|score)\s*[:=]\s*[\d.]+[,;]?\s*/gi, "")
+      .replace(/^\s*feedback\s*[:=]\s*/i, "")
+      .replace(/[{}\[\]"]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
 
   useEffect(() => {
@@ -215,6 +239,45 @@ runIntro();
   }
 }, [currentIndex, isIntroPhase, currentTimeLimit]);
 
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+useEffect(() => {
+  if (!interviewId) return;
+
+  try {
+    const savedDraft = window.localStorage.getItem(getDraftKey(currentIndex));
+    setAnswer(savedDraft || "");
+  } catch {
+    // Ignore storage exceptions in private mode/restricted environments.
+  }
+}, [interviewId, currentIndex]);
+
+useEffect(() => {
+  if (!interviewId || isIntroPhase) return;
+
+  try {
+    const key = getDraftKey(currentIndex);
+    if (answer.trim()) {
+      window.localStorage.setItem(key, answer);
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage exceptions in private mode/restricted environments.
+  }
+}, [answer, currentIndex, interviewId, isIntroPhase]);
+
 
   //voice to text logic
  useEffect(() => {
@@ -292,20 +355,29 @@ const submitAnswer =async () => {
   setIsSubmitting(true);
 
   try {
-    const res = await axios.post(serverURL + "/api/interview/submit-answer", {
+    const res = await apiClient.post("/api/interview/submit-answer", {
       interviewId,
       questionIndex: currentIndex,
       answer,
       timeTaken:
         currentQuestion.timeLimit - timeLeft,
-    }, { withCredentials: true });
+    });
 
-    setFeedback(res.data.feedback);
+    const cleanedFeedback = sanitizeFeedbackText(res.data.feedback);
+    setFeedback(cleanedFeedback || "Feedback received.");
     setIsSubmitting(false);
-    speakText(res.data.feedback);
+    try {
+      window.localStorage.removeItem(getDraftKey(currentIndex));
+    } catch {
+      // Ignore storage exceptions in private mode/restricted environments.
+    }
+    speakText(cleanedFeedback || "Feedback received.");
     
   } catch (error) {
-      showApiError(error, "We could not submit your answer. Please try again.");
+      showApiError(error, "We could not submit your answer. Please try again.", {
+        actionLabel: "Retry",
+        onAction: submitAnswer,
+      });
      setIsSubmitting(false);
      speakText("Sorry, there was an error submitting your answer. Please try again.");
   }
@@ -313,6 +385,12 @@ const submitAnswer =async () => {
 
 
 const handleNext = async () => {
+  try {
+    window.localStorage.removeItem(getDraftKey(currentIndex));
+  } catch {
+    // Ignore storage exceptions in private mode/restricted environments.
+  }
+
   setAnswer("");
   setFeedback("");
 
@@ -329,18 +407,32 @@ const handleNext = async () => {
 const finishInterview = async () => {
   stopMic();
   try {
-    const res= await axios.post(serverURL + "/api/interview/finish", {
+    const res= await apiClient.post("/api/interview/finish", {
       interviewId,
-    }, { withCredentials: true }
-  );
+    });
   onFinish(res.data);
+
+  try {
+    for (let i = 0; i < questions.length; i += 1) {
+      window.localStorage.removeItem(getDraftKey(i));
+    }
+  } catch {
+    // Ignore storage exceptions in private mode/restricted environments.
+  }
   
   const finalFeedback = res.data.finalFeedback || "Thank you for completing the interview. We will get back to you soon.";
   setFeedback(finalFeedback);
+  showSuccessToast("Interview completed. Your final report is ready.", {
+    actionLabel: "View Report",
+    onAction: () => navigate(`/report/${interviewId}`),
+  });
   speakText(finalFeedback); 
     
   } catch (error) {
-      showApiError(error, "Unable to finish interview right now. Please try again.");
+      showApiError(error, "Unable to finish interview right now. Please try again.", {
+        actionLabel: "Retry",
+        onAction: finishInterview,
+      });
       speakText("Sorry, there was an error finishing the interview. Please try again.");
 
   }
@@ -377,12 +469,35 @@ useEffect(() => {
 
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-teal-100 flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-350 min-h-[80vh] bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col lg:flex-row overflow-hidden">
+    <div className="h-screen overflow-hidden bg-linear-to-br from-emerald-50 via-white to-teal-100 flex flex-col items-center justify-start px-4 pt-24 pb-4 sm:px-6 sm:pt-26 sm:pb-6">
+      <div className="fixed top-3 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-3xl rounded-2xl border border-emerald-200 bg-white/95 px-4 py-2 shadow-md backdrop-blur">
+        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
+          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center">
+            <p className="text-[10px] text-gray-500">Question</p>
+            <p className="font-semibold text-emerald-700">{currentIndex + 1}/{questions.length}</p>
+          </div>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center">
+            <p className="text-[10px] text-gray-500">Time Left</p>
+            <p className="font-semibold text-emerald-700">{timeLeft}s</p>
+          </div>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center">
+            <p className="text-[10px] text-gray-500">Mic</p>
+            <p className="font-semibold text-emerald-700">{isMicOn ? "On" : "Off"}</p>
+          </div>
+          <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center">
+            <p className="text-[10px] text-gray-500">Network</p>
+            <p className={`font-semibold ${isOnline ? "text-emerald-700" : "text-rose-600"}`}>
+              {isOnline ? "Online" : "Offline"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="w-full max-w-350 h-[calc(100vh-8.5rem)] sm:h-[calc(100vh-9.5rem)] min-h-0 bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col lg:flex-row overflow-hidden">
         {/* video section */}
 
-        <div className="w-full lg:w-[35%] bg-white flex flex-col items-center p-6 space-y-6 border-r border-gray-200">
-          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl">
+        <div className="w-full lg:w-[35%] min-h-0 bg-white flex flex-col items-center p-6 gap-6 border-r border-gray-200 overflow-hidden">
+          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl shrink-0">
             <video
               src={videoSource}
               key={videoSource}
@@ -390,9 +505,11 @@ useEffect(() => {
               muted
               playsInline
               preload="auto"
-              className="w-full h-auto object-cover"
+              className="w-full h-auto object-contain object-top"
             />
           </div>
+
+          <div className="w-full max-w-md flex-1 min-h-0 overflow-y-auto space-y-6 pr-1">
 
           {/* subtitle .. */}
           {subtitle && (
@@ -438,10 +555,11 @@ useEffect(() => {
               </div>
             </div>
           </div>
+          </div>
         </div>
 
         {/* text section */}
-        <div className="flex-1 flex flex-col p-4 sm:p-6 md:p-8 relative">
+        <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 md:p-8 relative overflow-y-auto">
           <h2 className="text-xl sm:text-2xl font-bold text-emerald-600 mb-6">
             AI Smart Interview
           </h2>
@@ -465,6 +583,10 @@ useEffect(() => {
             value={answer}
             className="flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800"
           />
+
+          {!feedback && (
+            <p className="mt-2 text-xs text-gray-400">Draft autosaves on this device while you answer.</p>
+          )}
 
           {!feedback ? (<div className="flex items-center gap-4 mt-6">
             <button
