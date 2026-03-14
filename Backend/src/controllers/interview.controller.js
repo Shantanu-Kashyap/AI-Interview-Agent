@@ -54,24 +54,114 @@ const getKeywordCoverage = (questionText = "", answer = "") => {
     return matched / questionKeywords.length;
 };
 
+const simpleHash = (value = "") => {
+    let hash = 0;
+    const str = String(value);
+    for (let i = 0; i < str.length; i += 1) {
+        hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+};
+
+const pickVariant = (options, seedText) => {
+    if (!Array.isArray(options) || !options.length) return "";
+    const idx = simpleHash(seedText) % options.length;
+    return options[idx];
+};
+
+const hasConcreteExample = (answer = "") => {
+    const lower = String(answer).toLowerCase();
+    return /(for example|for instance|in my project|i worked on|we built|e\.g\.|for one project)/i.test(lower);
+};
+
+const hasUnprofessionalTone = (answer = "") => {
+    const lower = String(answer).toLowerCase();
+    return /\b(fuck|shit|bitch|asshole|mc|bc)\b/i.test(lower);
+};
+
+const hasGibberishPattern = (answer = "") => {
+    const tokens = String(answer).toLowerCase().match(/[a-z]+/g) || [];
+    if (!tokens.length) return false;
+    const suspicious = tokens.filter((token) => token.length >= 14 && !/[aeiou]/.test(token));
+    return suspicious.length >= 1;
+};
+
 const buildHeuristicFeedback = ({ wordCount, coverage, communication }) => {
-    if (wordCount < 8) {
-        return "Answer is too short. Add your approach, reasoning, and one practical example.";
+    const {
+        answer = "",
+        questionText = "",
+        correctness = 0,
+    } = arguments[0] || {};
+
+    const needsExample = !hasConcreteExample(answer);
+    const unprofessional = hasUnprofessionalTone(answer);
+    const gibberish = hasGibberishPattern(answer);
+    const seed = `${questionText}|${answer}|${wordCount}|${coverage}`;
+
+    const primary = [];
+    const improvements = [];
+
+    if (wordCount < 10) {
+        primary.push(pickVariant([
+            "Your response is too brief to evaluate depth.",
+            "This answer is short and lacks enough detail.",
+            "You need more detail to demonstrate your thinking.",
+        ], `${seed}:brief`));
     }
 
     if (coverage < 0.2) {
-        return "Your response misses key question points. Focus directly on asked problem details.";
+        primary.push(pickVariant([
+            "It does not address the core parts of the question.",
+            "The answer is weakly aligned with what was asked.",
+            "Key question requirements are not covered here.",
+        ], `${seed}:coverage-low`));
+    } else if (coverage < 0.4) {
+        primary.push(pickVariant([
+            "You partially addressed the question but missed key points.",
+            "Relevance is moderate; some important aspects are missing.",
+            "The answer touches the topic but lacks full coverage.",
+        ], `${seed}:coverage-mid`));
+    } else if (communication >= 7 && correctness >= 7) {
+        primary.push(pickVariant([
+            "Good relevance and clear delivery overall.",
+            "Strong alignment with the question and clear communication.",
+            "You explained the core idea clearly and stayed relevant.",
+        ], `${seed}:strong`));
     }
 
-    if (coverage >= 0.45 && communication >= 7) {
-        return "Strong relevance and clarity. Add measurable outcomes to make the answer interview-ready.";
+    if (needsExample) {
+        improvements.push(pickVariant([
+            "Add one real project example and outcome.",
+            "Support your points with one concrete practical example.",
+            "Include one example from experience to increase credibility.",
+        ], `${seed}:example`));
     }
 
     if (communication < 5.5) {
-        return "Good ideas, but structure is unclear. Use clear steps and concise language.";
+        improvements.push(pickVariant([
+            "Use a clear step-by-step structure.",
+            "Organize your answer into concise, logical steps.",
+            "Improve structure: context, approach, result.",
+        ], `${seed}:structure`));
     }
 
-    return "Decent response. Improve with clearer structure, concrete examples, and sharper technical depth.";
+    if (unprofessional) {
+        improvements.push("Keep the tone professional for interview settings.");
+    }
+
+    if (gibberish) {
+        improvements.push("Avoid unclear or random words; keep statements precise.");
+    }
+
+    if (!primary.length) {
+        primary.push("Decent attempt, but the answer needs stronger depth and precision.");
+    }
+
+    if (!improvements.length) {
+        improvements.push("Add specifics and measurable impact to strengthen your response.");
+    }
+
+    return `${primary[0]} ${improvements[0]}`;
 };
 
 // Extract clean feedback text - always strips score key-value pairs
@@ -145,7 +235,14 @@ const buildFallbackEvaluation = (answer = "", aiResponse = "", questionText = ""
 
     const feedback = aiResponse && normalized !== "Good attempt. Add concrete examples and structure to improve impact."
         ? normalized
-        : buildHeuristicFeedback({ wordCount, coverage, communication });
+        : buildHeuristicFeedback({
+            wordCount,
+            coverage,
+            communication,
+            correctness,
+            answer,
+            questionText,
+        });
 
     return {
         confidence,
