@@ -32,6 +32,48 @@ const clampScore = (value) => {
     return Math.max(0, Math.min(10, num));
 };
 
+const STOPWORDS = new Set([
+    "the", "and", "for", "with", "that", "this", "from", "your", "you", "are", "was", "were", "have",
+    "has", "had", "into", "about", "how", "what", "when", "where", "why", "would", "could", "should",
+    "their", "them", "they", "there", "then", "than", "just", "very", "been", "being", "will", "can",
+    "our", "out", "not", "but", "also", "any", "all", "more", "most", "such", "only", "each", "some",
+]);
+
+const toKeywords = (text = "") => {
+    return String(text)
+        .toLowerCase()
+        .match(/[a-z0-9]+/g)?.filter((word) => word.length > 2 && !STOPWORDS.has(word)) || [];
+};
+
+const getKeywordCoverage = (questionText = "", answer = "") => {
+    const questionKeywords = [...new Set(toKeywords(questionText))];
+    if (!questionKeywords.length) return 0;
+
+    const answerKeywords = new Set(toKeywords(answer));
+    const matched = questionKeywords.filter((word) => answerKeywords.has(word)).length;
+    return matched / questionKeywords.length;
+};
+
+const buildHeuristicFeedback = ({ wordCount, coverage, communication }) => {
+    if (wordCount < 8) {
+        return "Answer is too short. Add your approach, reasoning, and one practical example.";
+    }
+
+    if (coverage < 0.2) {
+        return "Your response misses key question points. Focus directly on asked problem details.";
+    }
+
+    if (coverage >= 0.45 && communication >= 7) {
+        return "Strong relevance and clarity. Add measurable outcomes to make the answer interview-ready.";
+    }
+
+    if (communication < 5.5) {
+        return "Good ideas, but structure is unclear. Use clear steps and concise language.";
+    }
+
+    return "Decent response. Improve with clearer structure, concrete examples, and sharper technical depth.";
+};
+
 // Extract clean feedback text - always strips score key-value pairs
 const normalizeFeedback = (text) => {
     const raw = String(text || "").replace(/```json|```/gi, "").trim();
@@ -77,30 +119,44 @@ const tryParseKeyValues = (raw = "") => {
     return { confidence: c, communication: cm, correctness: cr, finalScore: fs, feedback: normalizeFeedback(raw) };
 };
 
-const buildFallbackEvaluation = (answer = "", aiResponse = "") => {
+const buildFallbackEvaluation = (answer = "", aiResponse = "", questionText = "") => {
     const wordCount = String(answer).trim().split(/\s+/).filter(Boolean).length;
+    const coverage = getKeywordCoverage(questionText, answer);
+    const sentenceCount = Math.max(1, String(answer).split(/[.!?]+/).filter((s) => s.trim().length).length);
 
     let base = 4;
     if (wordCount >= 120) base = 8;
     else if (wordCount >= 80) base = 7;
     else if (wordCount >= 45) base = 6;
     else if (wordCount >= 20) base = 5;
+    else if (wordCount < 8) base = 2;
+
+    if (coverage >= 0.45) base += 1;
+    else if (coverage < 0.15) base -= 1;
+
+    const avgWordsPerSentence = wordCount / sentenceCount;
+    const communicationBoost = avgWordsPerSentence > 22 ? -0.5 : avgWordsPerSentence >= 8 ? 0.5 : 0;
 
     const confidence = clampScore(base);
-    const communication = clampScore(base + 0.5);
-    const correctness = clampScore(base);
+    const communication = clampScore(base + communicationBoost);
+    const correctness = clampScore(base + (coverage >= 0.35 ? 1 : coverage < 0.15 ? -1 : 0));
     const finalScore = Math.round((confidence + communication + correctness) / 3);
+    const normalized = normalizeFeedback(aiResponse);
+
+    const feedback = aiResponse && normalized !== "Good attempt. Add concrete examples and structure to improve impact."
+        ? normalized
+        : buildHeuristicFeedback({ wordCount, coverage, communication });
 
     return {
         confidence,
         communication,
         correctness,
         finalScore,
-        feedback: normalizeFeedback(aiResponse),
+        feedback,
     };
 };
 
-const parseAnswerEvaluation = (aiResponse, answer) => {
+const parseAnswerEvaluation = (aiResponse, answer, questionText = "") => {
     try {
         const parsed = parseAiJson(aiResponse);
 
@@ -121,7 +177,7 @@ const parseAnswerEvaluation = (aiResponse, answer) => {
         // Try parsing "confidence: 9, ... feedback: ..." plain-text format before full fallback
         const kvResult = tryParseKeyValues(aiResponse);
         if (kvResult) return kvResult;
-        return buildFallbackEvaluation(answer, aiResponse);
+        return buildFallbackEvaluation(answer, aiResponse, questionText);
     }
 };
 
@@ -740,12 +796,11 @@ Candidate's Answer: ${answer}
         let parsed;
         try {
             const aiResponse = await askAI(messages);
-            parsed = parseAnswerEvaluation(aiResponse, answer);
+            parsed = parseAnswerEvaluation(aiResponse, answer, question.question);
         } catch (aiError) {
             // Keep interview flow resilient in production even when provider credentials/rate limits fail.
             console.error("Answer evaluation AI failed, using fallback scoring:", aiError.message);
-            parsed = buildFallbackEvaluation(answer, "");
-            parsed.feedback = "Good attempt. Add clearer structure and one concrete example next time.";
+            parsed = buildFallbackEvaluation(answer, "", question.question);
         }
 
         question.answer = answer;
