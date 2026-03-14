@@ -9,7 +9,7 @@ import interviewRouter from './src/routes/interview.route.js';
 import paymentRouter from './src/routes/payment.route.js';
 import adminRouter from './src/routes/admin.route.js';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const allowedOrigins = [
@@ -19,6 +19,12 @@ const allowedOrigins = [
   "https://ai-interview-agent.vercel.app",
 ].filter(Boolean);
 
+// Allow Vercel preview URLs for this project while keeping a restricted allowlist.
+const allowedOriginPatterns = [
+  /^https:\/\/ai-interview-agent(?:-[a-z0-9-]+)?\.vercel\.app$/i,
+  /^https:\/\/ai-interview-agent-[a-z0-9-]+-shantanu-kashyaps-projects\.vercel\.app$/i,
+];
+
 const corsOptions = {
     origin: (origin, callback) => {
         // Allow server-to-server calls and tools that don't send Origin
@@ -27,6 +33,10 @@ const corsOptions = {
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
+
+    if (allowedOriginPatterns.some((pattern) => pattern.test(origin))) {
+      return callback(null, true);
+    }
 
         return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
