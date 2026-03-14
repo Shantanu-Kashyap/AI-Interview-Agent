@@ -86,12 +86,14 @@ const hasGibberishPattern = (answer = "") => {
     return suspicious.length >= 1;
 };
 
-const buildHeuristicFeedback = ({ wordCount, coverage, communication }) => {
-    const {
-        answer = "",
-        questionText = "",
-        correctness = 0,
-    } = arguments[0] || {};
+const buildHeuristicFeedback = ({
+    wordCount,
+    coverage,
+    communication,
+    answer = "",
+    questionText = "",
+    correctness = 0,
+}) => {
 
     const needsExample = !hasConcreteExample(answer);
     const unprofessional = hasUnprofessionalTone(answer);
