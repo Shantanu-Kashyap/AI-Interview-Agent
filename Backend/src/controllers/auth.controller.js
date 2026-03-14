@@ -1,6 +1,18 @@
 import genToken from "../config/token.js";
 import User from "../models/user.model.js";
 
+const getCookieOptions = () => {
+    const isProd = process.env.NODE_ENV === "production";
+
+    return {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: isProd ? "none" : "lax",
+        maxAge: 24 * 60 * 60 * 1000,
+        path: "/",
+    };
+};
+
 const generateReferralCode = (name = "") => {
     const normalized = name
         .replace(/[^a-zA-Z0-9]/g, "")
@@ -26,8 +38,8 @@ export const googleAuth = async (req, res) => {
         }
        
         let token = genToken(user._id);
-        
-        res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 24 * 60 * 60 * 1000 });
+
+        res.cookie("token", token, getCookieOptions());
 
         return res.status(200).json({ user, token });
     
@@ -39,7 +51,13 @@ export const googleAuth = async (req, res) => {
 
 export const logout = async (req, res) => {
     try {
-        await res.clearCookie("token").json({ message: "Logged out successfully" });  
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        });
+        return res.json({ message: "Logged out successfully" });
     } catch (error) {
         res.status(500).json({ message: "Error logging out", error });  
     }

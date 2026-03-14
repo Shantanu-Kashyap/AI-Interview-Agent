@@ -5,7 +5,13 @@ import jwt from "jsonwebtoken";
 const isAuth= async (req,res,next)=>{
     
     try {
-        const token = req.cookies.token;
+        const cookieToken = req.cookies?.token;
+        const authHeader = req.headers?.authorization || "";
+        const headerToken = authHeader.startsWith("Bearer ")
+            ? authHeader.slice(7).trim()
+            : "";
+
+        const token = cookieToken || headerToken;
         if (!token) {
             return res.status(401).json({ message: "Unauthorized: No token provided" });
         }   

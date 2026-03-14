@@ -469,7 +469,7 @@ useEffect(() => {
 
 
   return (
-    <div className="h-screen overflow-hidden bg-linear-to-br from-emerald-50 via-white to-teal-100 flex flex-col items-center justify-start px-4 pt-24 pb-4 sm:px-6 sm:pt-26 sm:pb-6">
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-teal-100 flex flex-col items-center justify-start px-3 pt-24 pb-4 sm:px-6 sm:pt-26 sm:pb-6">
       <div className="fixed top-3 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-3xl rounded-2xl border border-emerald-200 bg-white/95 px-4 py-2 shadow-md backdrop-blur">
         <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 sm:grid-cols-4">
           <div className="rounded-lg bg-emerald-50 px-3 py-2 text-center">
@@ -493,10 +493,10 @@ useEffect(() => {
         </div>
       </div>
 
-      <div className="w-full max-w-350 h-[calc(100vh-8.5rem)] sm:h-[calc(100vh-9.5rem)] min-h-0 bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col lg:flex-row overflow-hidden">
+      <div className="w-full max-w-350 min-h-0 bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
         {/* video section */}
 
-        <div className="w-full lg:w-[35%] min-h-0 bg-white flex flex-col items-center p-6 gap-6 border-r border-gray-200 overflow-hidden">
+        <div className="w-full lg:w-[35%] min-h-0 bg-white flex flex-col items-center p-4 sm:p-6 gap-4 sm:gap-6 lg:border-r border-gray-200 overflow-hidden">
           <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-xl shrink-0">
             <video
               src={videoSource}
@@ -509,7 +509,7 @@ useEffect(() => {
             />
           </div>
 
-          <div className="w-full max-w-md flex-1 min-h-0 overflow-y-auto space-y-6 pr-1">
+          <div className="w-full max-w-md flex-1 min-h-0 overflow-visible lg:overflow-y-auto space-y-6 pr-0 lg:pr-1">
 
           {/* subtitle .. */}
           {subtitle && (
@@ -581,14 +581,14 @@ useEffect(() => {
             placeholder="Type your answer here..."
             onChange={(e) => setAnswer(e.target.value)}
             value={answer}
-            className="flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800"
+            className="min-h-55 sm:min-h-65 lg:min-h-0 lg:flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800"
           />
 
           {!feedback && (
             <p className="mt-2 text-xs text-gray-400">Draft autosaves on this device while you answer.</p>
           )}
 
-          {!feedback ? (<div className="flex items-center gap-4 mt-6">
+          {!feedback ? (<div className="flex items-center gap-3 sm:gap-4 mt-6 pb-2">
             <button
             onClick={toggleMic}
             className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-full bg-black text-white shadow-lg">

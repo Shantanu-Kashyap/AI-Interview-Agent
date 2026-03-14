@@ -737,8 +737,16 @@ Candidate's Answer: ${answer}
             }
         ];
 
-        const aiResponse = await askAI(messages);
-        const parsed = parseAnswerEvaluation(aiResponse, answer);
+        let parsed;
+        try {
+            const aiResponse = await askAI(messages);
+            parsed = parseAnswerEvaluation(aiResponse, answer);
+        } catch (aiError) {
+            // Keep interview flow resilient in production even when provider credentials/rate limits fail.
+            console.error("Answer evaluation AI failed, using fallback scoring:", aiError.message);
+            parsed = buildFallbackEvaluation(answer, "");
+            parsed.feedback = "Good attempt. Add clearer structure and one concrete example next time.";
+        }
 
         question.answer = answer;
         question.confidence = parsed.confidence;

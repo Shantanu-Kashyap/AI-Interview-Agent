@@ -8,7 +8,7 @@ import { auth, provider } from '../utils/firebase';
 import { useDispatch } from 'react-redux';
 import { setUserData } from '../redux/userSlice';
 import { showApiError } from '../utils/errorHandler';
-import apiClient from '../utils/apiClient';
+import apiClient, { setAuthToken } from '../utils/apiClient';
 
 
 const Auth = ({isModel = false}) => {
@@ -22,10 +22,12 @@ const Auth = ({isModel = false}) => {
             let name = user.displayName;
             let email = user.email;
             const res = await apiClient.post('/api/auth/google', { name, email });
+            setAuthToken(res?.data?.token || null);
             dispatch(setUserData(res.data.user));
             
         } catch (error) {
             showApiError(error, "Sign-in failed. Please try again.");
+            setAuthToken(null);
             dispatch(setUserData(null));
         }
     }

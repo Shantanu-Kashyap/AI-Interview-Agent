@@ -15,7 +15,7 @@ import Admin from './pages/Admin'
 import { showApiError } from './utils/errorHandler'
 import ToastViewport from './components/ToastViewport'
 import { showInfoToast } from './utils/toast'
-import apiClient from './utils/apiClient'
+import apiClient, { clearAuthToken } from './utils/apiClient'
 
 export const serverURL = 'https://ai-interview-agent-px6a.onrender.com'
 
@@ -33,6 +33,8 @@ const App = () => {
       const status = error?.response?.status;
       if (status !== 401) {
         showApiError(error, "Unable to load your account right now.");
+      } else {
+        clearAuthToken();
       }
       dispatch(setUserData(null));
      }
